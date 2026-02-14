@@ -1,6 +1,8 @@
 const canvas = document.getElementById("tela");
 const ctx = canvas.getContext("2d");
 
+
+
 const playerImg = new Image();
 playerImg.src = "img/player.png";
 
@@ -14,6 +16,20 @@ const player = {
   w: 64,
   h: 64
 };
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  player.y = canvas.height - 90;
+
+  if (player.x > canvas.width - player.w)
+    player.x = canvas.width - player.w;
+
+}
+
+window.addEventListener("resize", resize);
+resize();
 
 const bullets = [];
 const stars = [];
@@ -35,7 +51,7 @@ player.speed = 5;
 
 function drawBackground(){
   ctx.fillStyle = "#05060f";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);  
 
   ctx.fillStyle = "white";
 
