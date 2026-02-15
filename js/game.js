@@ -1,38 +1,59 @@
 const canvas = document.getElementById("tela");
 const ctx = canvas.getContext("2d");
 
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 600;
 
+canvas.width = GAME_WIDTH;
+canvas.height = GAME_HEIGHT;
 
 const playerImg = new Image();
 playerImg.src = "img/player.png";
+
+const enemyImg = new Image();
+enemyImg.src = "img/125.png";
 
 const bulletImg = new Image();
 bulletImg.src = "img/shot.svg";
 let canShoot = true;
 
 const player = {
-  x: 400,
-  y: 500,
+  x: GAME_WIDTH / 2 - 32,
+  y: GAME_HEIGHT - 64 - 20,
   w: 64,
   h: 64
 };
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+function resizeCanvas(){
+const scaleX = window.innerWidth / GAME_WIDTH;
+const scaleY = window.innerHeight / GAME_HEIGHT;
+const scale = Math.min(scaleX, scaleY);
 
-  player.y = canvas.height - 90;
-
-  if (player.x > canvas.width - player.w)
-    player.x = canvas.width - player.w;
+canvas.style.width = GAME_WIDTH * scale + "px";
+canvas.style.height = GAME_HEIGHT * scale + "px";
 
 }
 
-window.addEventListener("resize", resize);
-resize();
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+function spawnEnemy(){
+  enemies.push ({
+    x: Math.random() * (GAME_WIDTH - 40),
+    y: -40,
+    w: 40,
+    h: 40,
+    speed: 1.5,
+    life: 3
+  });
+}
+
+
 
 const bullets = [];
 const stars = [];
+const enemies = [];
+
 
 for (let i = 0; i < 120; i++){
   stars.push({
@@ -69,6 +90,17 @@ function drawBackground(){
   }
 }
 
+
+setInterval(spawnEnemy, 1200);
+
+function rectsCollide(a, b){
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  );
+}
 
 function loop() {
 
@@ -111,7 +143,36 @@ function loop() {
       b.state = "back";
     }
   }
+  for (let i = 0; i < enemies.length; i++){
+    const e = enemies[i];
 
+    e.y += e.speed;
+    
+    if (rectsCollide(e, b)) {
+
+      e.life--;
+      bullets.splice(j, 1);
+      j--;
+
+      if (e.life <= 0){
+        enemies.splice(i, 1);
+        i--;
+        break;
+      }
+    }
+
+    if (!enemies[i]) continue;
+    
+    ctx.drawImage(enemyImg, e.x, e.y, e.w, e.h);
+
+    if (e.y > GAME_HEIGHT + e.h){
+      enemies.splice(i, 1);
+      i--;
+
+
+    } 
+
+  }
   ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
 
   requestAnimationFrame(loop);
