@@ -1,214 +1,155 @@
+let gameStarted = false;
+let loopStarted = false;
+let startTime = 0;
+window.score = 0;
+
 const canvas = document.getElementById("tela");
 const ctx = canvas.getContext("2d");
-
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 
 canvas.width = GAME_WIDTH;
 canvas.height = GAME_HEIGHT;
 
-const playerImg = new Image();
-playerImg.src = "img/player.png";
+const playerImg = new Image(); playerImg.src = "img/player.png";
+const enemyImg = new Image(); enemyImg.src = "img/125.png";
+const bulletImg = new Image(); bulletImg.src = "img/shot.svg";
 
-const enemyImg = new Image();
-enemyImg.src = "img/125.png";
-
-const bulletImg = new Image();
-bulletImg.src = "img/shot.svg";
-
-let canShoot = true;
-
-const player = {
-  x: GAME_WIDTH / 2 - 32,
-  y: GAME_HEIGHT - 64 - 20,
-  w: 64,
-  h: 64,
-  speed: 5
-};
+window.ctx = ctx;
+window.GAME_WIDTH = GAME_WIDTH;
+window.GAME_HEIGHT = GAME_HEIGHT;
+window.playerImg = playerImg;
+window.enemyImg = enemyImg;
+window.bulletImg = bulletImg;
 
 function resizeCanvas() {
   const scaleX = window.innerWidth / GAME_WIDTH;
   const scaleY = window.innerHeight / GAME_HEIGHT;
   const scale = Math.min(scaleX, scaleY);
-
   canvas.style.width = GAME_WIDTH * scale + "px";
   canvas.style.height = GAME_HEIGHT * scale + "px";
 }
-
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-const bullets = [];
 const stars = [];
-const enemies = [];
-
-function spawnEnemy() {
-  enemies.push({
-    x: Math.random() * (GAME_WIDTH - 40),
-    y: -40,
-    w: 40,
-    h: 40,
-    speed: 1.5,
-    life: 3
-  });
-}
-
 for (let i = 0; i < 120; i++) {
   stars.push({
-    x: Math.random() * canvas.width,
-    y: Math.random() * canvas.height,
+    x: Math.random() * GAME_WIDTH,
+    y: Math.random() * GAME_HEIGHT,
     r: Math.random() * 2 + 0.5,
     speed: Math.random() * 0.5 + 0.2
   });
 }
 
-let left = false;
-let right = false;
-
 function drawBackground() {
   ctx.fillStyle = "#05060f";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+  ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   ctx.fillStyle = "white";
-
-  for (let s of stars) {
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fill();
-
+  for (const s of stars) {
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
     s.y += s.speed;
-
-    if (s.y > canvas.height) {
-      s.y = 0;
-      s.x = Math.random() * canvas.width;
-    }
+    if (s.y > GAME_HEIGHT) { s.y = 0; s.x = Math.random() * GAME_WIDTH; }
   }
 }
 
-setInterval(spawnEnemy, 1200);
+function drawHUD() {
+    ctx.fillStyle = "white";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "left";
+    
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    
+    ctx.fillText(`TEMPO: ${elapsed}s`, 20, 40);
+    ctx.fillText(`SCORE: ${window.score}`, 20, 70);
+    
+    if (window.availableAmmo === 0) ctx.fillStyle = "red";
+    ctx.fillText(`MUNIÇÃO: ${window.availableAmmo}`, 20, 100);
 
-// colisão AABB
-function rectsCollide(a, b) {
-  return (
-    a.x < b.x + b.w &&
-    a.x + a.w > b.x &&
-    a.y < b.y + b.h &&
-    a.y + a.h > b.y
-  );
+    if (window.player) {
+        ctx.fillStyle = (window.player.life <= 1) ? "red" : "white";
+        ctx.fillText(`VIDAS: ${window.player.life}`, 20, 130);
+    }
 }
 
-function loop() {
-
-  drawBackground();
-
-  if (left) player.x -= player.speed;
-  if (right) player.x += player.speed;
-
-  if (player.x < 0) player.x = 0;
-  if (player.x > GAME_WIDTH - player.w) {
-    player.x = GAME_WIDTH - player.w;
-  }
-
-  // -------- TIROS --------
-  for (let i = 0; i < bullets.length; i++) {
-    const b = bullets[i];
-
-    if (b.state === "up") {
-      b.y -= b.speed;
-
-      if (b.y <= 0) {
-        b.y = 0;
-        b.state = "stop";
-      }
-    }
-    else if (b.state === "back") {
-      b.y += b.speed;
-
-      if (b.y >= player.y) {
-        bullets.splice(i, 1);
-        i--;
-        continue;
-      }
-    }
-
-    ctx.drawImage(bulletImg, b.x, b.y, b.w, b.h);
-  }
-
-  // quando os dois tiros pararem no topo, voltam juntos
-  if (
-    bullets.length === 2 &&
-    bullets.every(b => b.state === "stop")
-  ) {
-    for (const b of bullets) {
-      b.state = "back";
-    }
-  }
-
-  // -------- INIMIGOS + DANO --------
-  for (let i = 0; i < enemies.length; i++) {
-    const e = enemies[i];
-
-    e.y += e.speed;
-
-    // colisão com tiros (somente na subida)
-    for (let j = 0; j < bullets.length; j++) {
-      const b = bullets[j];
-
-      if (b.state === "up" && rectsCollide(e, b)) {
-        e.life--;
-        bullets.splice(j, 1);
-        j--;
-
-        if (e.life <= 0) {
-          enemies.splice(i, 1);
-          i--;
-          break;
-        }
-      }
-    }
-
-    if (i < 0) continue;
-
-    ctx.drawImage(enemyImg, e.x, e.y, e.w, e.h);
-
-    if (e.y > GAME_HEIGHT + e.h) {
-      enemies.splice(i, 1);
-      i--;
-    }
-  }
-
-  ctx.drawImage(playerImg, player.x, player.y, player.w, player.h);
-
-  requestAnimationFrame(loop);
+function drawGameOver() {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    
+    ctx.fillStyle = "red";
+    ctx.font = "bold 50px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", GAME_WIDTH / 2, GAME_HEIGHT / 2);
+    
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.fillText(`Score Final: ${window.score}`, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40);
+    ctx.fillText("Pressione F5 para reiniciar", GAME_WIDTH / 2, GAME_HEIGHT / 2 + 80);
 }
 
-document.addEventListener("keydown", (e) => {
+let left = false, right = false, canShoot = true;
+
+document.addEventListener("keydown", e => {
+  if (!gameStarted || (window.player && window.player.life <= 0)) return;
   if (e.code === "ArrowLeft") left = true;
   if (e.code === "ArrowRight") right = true;
-
-  if (e.code === "Space" && canShoot && bullets.length < 2) {
-
-    bullets.push({
-      x: player.x + player.w / 2 - 4,
-      y: player.y,
-      w: 8,
-      h: 16,
-      speed: 8,
-      state: "up"
-    });
-
+  
+  if (e.code === "Space" && canShoot) {
+    shootBullet(window.player);
     canShoot = false;
-    setTimeout(() => {
-      canShoot = true;
-    }, 250);
+    setTimeout(() => canShoot = true, 200);
   }
 });
 
-document.addEventListener("keyup", (e) => {
+document.addEventListener("keyup", e => {
   if (e.code === "ArrowLeft") left = false;
   if (e.code === "ArrowRight") right = false;
 });
 
-playerImg.onload = () => {
-  loop();
-};
+setInterval(() => {
+  if (gameStarted && window.player && window.player.life > 0) createEnemy();
+}, 3000);
+
+function startGame() {
+  if (loopStarted) return;
+  
+  if (window.player) {
+      window.player.x = GAME_WIDTH / 2 - 32;
+      window.player.y = GAME_HEIGHT - 80;
+      window.player.life = 4;
+  }
+
+  window.score = 0;
+  gameStarted = true;
+  loopStarted = true;
+  startTime = Date.now();
+  requestAnimationFrame(loop);
+}
+window.startGame = startGame;
+
+function loop() {
+  if (!gameStarted) return;
+
+  drawBackground();
+  
+  if (window.player && window.player.life > 0) {
+      updatePlayer(left, right);
+      drawPlayer();
+      
+      updateBullets(window.player);
+      drawBullets();
+      
+      updateEnemies(window.player); 
+      drawEnemies();
+      
+      drawHUD();
+  } else {
+      drawPlayer();
+      drawEnemies();
+      drawGameOver();
+  }
+  
+  requestAnimationFrame(loop);
+}
+
+playerImg.onload = () => { drawBackground(); };
